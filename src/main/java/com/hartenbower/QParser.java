@@ -15,6 +15,11 @@ import org.w3c.tidy.Tidy;
 
 import com.hartenbower.Quotation;
 
+/*
+ * This was implemented for a particular site's DOM
+ * For new site, reimplement parseNode and maybe parse and parseRecursive
+ * or throw this mess out and do it with scala 
+ */
 public class QParser {
 	static Logger log = Logger.getLogger(Parser.class);
 	public static List<Quotation> quotes = new LinkedList<Quotation>();
@@ -70,7 +75,7 @@ public class QParser {
 				System.out.println("at root have " + nl.getLength());
 				for (int i = 0; i < nl.getLength(); i++) {
 					Node n = nl.item(i);
-					log.info(dump(0, n));
+					log.info(parseNode(0, n));
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -104,7 +109,7 @@ public class QParser {
 		return false;
 	}
 
-	static private String dump(int i, Node n) {
+	static private String parseNode(int i, Node n) {
 
 		String spaces = "";
 		while (i-- > 0) {
@@ -181,7 +186,7 @@ public class QParser {
 
 		NodeList nl = n.getChildNodes();
 		for (int j = 0; j < nl.getLength(); j++) {
-			sb.append(dump(i + 1, nl.item(j)));
+			sb.append(parseNode(i + 1, nl.item(j)));
 		}
 		return sb.toString();
 	}

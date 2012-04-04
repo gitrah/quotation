@@ -14,19 +14,20 @@ public class ParseTest {
 
 	@Test
 	public void testParse() {
-		QParser.parseRecursive("/home/rhartenbower/slurp/brainy/www.brainyquote.com/quotes/authors/");
+		QParser.parseRecursive("<<path to downloaded copy of site to be slurped>>");
 		
 		if(!QParser.quotes.isEmpty()) {
 			List<Quotation> qs = QParser.quotes;
 			qs.addAll(QParser.oldQuotes);
 			System.out.println("tot " + qs.size());
 			FileUtil.toFile(qs, "newQods.ser");
+			System.out.println("dups " + QParser.dupCount);
+			
+			List<Quotation> nq = (List) FileUtil.fromFile("newQods.ser", Quotation.class);
+			System.out.println("loaded " + nq.size());
 		}
 		
-		System.out.println("dups " + QParser.dupCount);
-		
-		List<Quotation> nq = (List) FileUtil.fromFile("newQods.ser", Quotation.class);
-		System.out.println("loaded " + nq.size());
+		//assertTrue(...)
 		
 	}
 }
