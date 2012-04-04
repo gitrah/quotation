@@ -1,0 +1,47 @@
+Quotation demonstrates multicore fuzzy text searching using Scala actors 
+and Levenshtein distances over a list of nearly 125000 famous quotations.
+Also includes tools for slurping new quotes and a little gui 'quote of 
+the day' app; attaching search functionality to the gui is left to the 
+motivated reader...
+Requires scala, java, maven and an internet connection to download some of the other libraries.
+
+Build with 'mvn clean install'
+
+A) command line search
+
+from the command line, exec scalaRun.sh and from the scala REPL prompt, enter
+
+scala> import com.hartenbower._						// import the classes 
+import com.hartenbower._
+
+scala> val quotes = Qutil.qods						// load the quotations
+quotes: java.util.List[com.hartenbower.Quotation] = 
+[Many attempts to communicate are nullified by saying too much. -- Servant Leadership: A Journey into the Nature of Legitimate Power and Greatness Paulist Press 77 -- Robert Greenleaf, Director of Management Research, AT&T, In how many lives does love really play a dominant part? The average taxpayer is no more capable of the grand passion than of a grand opera. -- Quoted on Who Said That? BBC TV 11 Feb 58 -- Israel Zangwill, I say to my patient, "I wish you a very good journey to an unknown you've never seen." -- To his patients who choose euthanasia, ib -- Dr Pieter V Admiraal, Bulgaria is guilty. -- On plot to kill the pope, news summaries 7 Jun 85 -- Mehmet Ali Agca, I'm the best. I just haven't played yet. -- On his golf game, ib -...
+
+scala> QuoteWorker.setQuotations(quotes)			// attach them to the searcher
+
+
+scala> QuoteWorker.search("Four scpre", 2)			// search
+INFO - found 1 in (33936,34036)
+INFO - worker7 :: [9700] is stopping
+INFO - worker3 :: [9200] is stopping
+INFO - worker4 :: [9500] is stopping
+INFO - worker8 :: [8755] is stopping
+INFO - worker2 :: [9200] is stopping
+INFO - worker1 :: [9600] is stopping
+INFO - worker5 :: [9600] is stopping
+INFO - prolog
+INFO - worker6 :: [9400] is stopping
+Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. 
+        Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. 
+        But, in a larger sence, we can not dedicate--we can not consecrate--we can not hallow--this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us--that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion--that we here highly resolve that these dead shall not have died in vain--that this nation, under God, shall have a new birth of freedom--and that government of the people, by the people, for the people, shall not perish from the earth. -- address delivered at the dedication of the cemetery at Gettysburg, Pennsylvania, final text, Nov. 19, 1863. Collected Works of Abraham Lincoln, vol. 7, p. 23, Rutgers University Press (1953, 1990). -- Abraham Lincoln (1809-1865), U.S. president.
+
+B) Quote of the day clock, showing a new quote every 30 seconds
+
+from the command line, exec gui.sh or exec scalaRun.sh and from the scala REPL prompt, enter
+
+scala> import com.hartenbower._						// import the classes 
+import com.hartenbower._
+
+scala> QodApp.main(Array[String]())					// launch
+
