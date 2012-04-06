@@ -34,6 +34,8 @@ public class StringUtil {
         }
 
         /*
+         * (not my implementation)  
+         * 
            The difference between this impl. and the previous is that, rather 
            than creating and retaining a matrix of size s.length()+1 by t.length()+1, 
            we maintain two single-dimensional arrays of length s.length()+1.  The first, d,
