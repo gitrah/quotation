@@ -13,7 +13,7 @@ object Scheduler {
 }
 import com.hartenbower.Scheduler.{ log, DEBUG }
 
-class Scheduler[T](val queue: List[T]) extends Actor {
+class Scheduler[T](val lock: AnyRef, val queue: List[T]) extends Actor {
   val chunkSize = 200
   val total = queue.size
   var workers: Set[Worker] = Set[Worker]()
@@ -79,6 +79,9 @@ class Scheduler[T](val queue: List[T]) extends Actor {
             if (workers.isEmpty) {
               prolog
               finished = true
+              lock.synchronized {
+            	  lock.notify
+              }
             } else {
               act
             }

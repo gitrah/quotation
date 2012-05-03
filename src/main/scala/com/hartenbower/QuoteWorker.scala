@@ -42,13 +42,15 @@ object QuoteWorker {
   }
   
   def search(s:String, lev: Int) {
-    val scheduler = new Scheduler[Quotation](quotes)
+    val lock = new AnyRef()
+    val scheduler = new Scheduler[Quotation](lock,quotes)
     scheduler.start
     scheduler ! Init(searcher(s,lev))
-    // simulate an actor that waits for the search to complete
-    while(!scheduler.finished) {
-      Thread.sleep(50)
+    lock.synchronized {
+    	lock.wait  
     }
+    
+
     for (i <- scheduler.results) {
       System.out.println(scheduler.queue(i._1).toSearchString(i._2, s.length))
     }
