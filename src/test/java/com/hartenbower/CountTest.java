@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -17,9 +18,21 @@ import scala.Tuple2;
 
 public class CountTest {
 	public static List<Quotation> qods = Qutil.qods;
-	public static TreeSet<String> keys = null;
-	public static TreeSet<Integer> counts = null;
-	public static TreeSet<Integer> lengths = null;
+	public static int countOfQods = qods.size();
+	public static int wordCount = 0;
+	public static boolean printCounts = false;
+	public static TreeSet<String> words = null;
+	public static TreeSet<Integer> wordCounts = null;
+	public static TreeSet<Integer> wordLengths = null;
+	public static TreeSet<Short> distinctQuoteLengths  = null;
+
+	public static List<Short> quoteLengths = new ArrayList<Short>();
+	public static Map<Short, Short> quoteLengthQuoteCountMap = new HashMap<Short,Short>();
+	public static Map<Short, Integer> binnedQuoteLengthQuoteCountMap = new HashMap<Short,Integer>();
+	public static short maxBodyLength = 0;
+	public static short numberOfBins = 0;
+	public static short binWidth = 256;
+	
 	public static Map<String, Integer> wordCountMap = new HashMap<String,Integer>();
 	public static Map<Integer, List<String>> countWordsMap = new HashMap<Integer, List<String>>();
 	public static Map<Integer, List<String>> lengthWordsMap = new HashMap<Integer, List<String>>();
@@ -29,7 +42,29 @@ public class CountTest {
 	// for each word, holds a list of tuples; first is index of quotation in qods, second is index into body of quote
 	// the quote must be 'reconstructed' after the search to determine if phrases match (which would correspond to words 
 	// in the same quote with successive indices)
-	public static Map<String, List<Tuple2<Integer,Integer>>> wordQuoteIndices = new HashMap<String, List<Tuple2<Integer,Integer>>>();
+	public static Map<String, List<Tuple2<Integer,Short>>> wordQuoteIndices = new HashMap<String, List<Tuple2<Integer,Short>>>();
+	
+	
+	public static int sum(Collection<Short> col) {
+		int s = 0;
+		Iterator<Short> i = col.iterator();
+		while(i.hasNext()) {
+			s += i.next();
+		}
+		return s;
+	}
+	public static int sumi(Collection<Integer> col) {
+		int s = 0;
+		Iterator<Integer> i = col.iterator();
+		while(i.hasNext()) {
+			s += i.next();
+		}
+		return s;
+	}
+	
+	public static void main(String... args) {
+		new CountTest().testCount();
+	}
 	
 	@Test
 	public void testCount() {
@@ -38,9 +73,15 @@ public class CountTest {
 		//String delim = "[ \\.,;:\"'-?!\n\t\\$0123456789#\\(\\)/%&\\*\\[\\]]|[^\\w,\\w]++";
 		String delim = "[ \\.\\,;:\"'-?!\n\t\\$0123456789#\\(\\)/%&\\*\\[\\]<=–…>\\+]";
 		String word ;
-		List<Tuple2<Integer,Integer>> quindices;
+		List<Tuple2<Integer,Short>> quindices;
 		int qindex = 0;
+		short bodyLength;
+		
+		System.out.println("Loading " + countOfQods + " quotations");
 		for (Quotation q : Qutil.qods) {
+			 bodyLength = (short)q.getBody().length();
+			 quoteLengths.add(bodyLength);
+	      	 maxBodyLength = (short)Math.max(maxBodyLength, bodyLength);
 			 StringTokenizer tk = new StringTokenizer( q.getBody(), delim);
 			 while(tk.hasMoreTokens()) {
 				 word = tk.nextToken().trim();
@@ -49,20 +90,25 @@ public class CountTest {
 				 wordCountMap.put(word, cnt);
 				 quindices = wordQuoteIndices.get(word);
 				 if(quindices == null) {
-					 quindices = new ArrayList<Tuple2<Integer,Integer>>();
+					 quindices = new ArrayList<Tuple2<Integer,Short>>();
 					 wordQuoteIndices.put(word,quindices);
 				 }
-				 quindices.add(new Tuple2<Integer,Integer>(qindex, q.getBody().indexOf(word)));
+				 quindices.add(new Tuple2<Integer,Short>(qindex, (short)q.getBody().indexOf(word)));
 			 }
 			 qindex++;
 		}
 		long countsTime = System.currentTimeMillis() - ltime;
 		System.out.println("\n\n\ncounts took " +( Qutil.fromMillis(countsTime)) + "\n\n\n");
-		keys = new TreeSet<String>(wordCountMap.keySet());
-		Iterator<String> ik = keys.descendingIterator();
-		while(ik.hasNext()) {
-			word = ik.next();
-			System.out.println(word + " " + wordCountMap.get(word));
+		wordCount = sumi(wordCountMap.values());
+		System.out.println("sum of word counts "  + wordCount);
+		
+		words = new TreeSet<String>(wordCountMap.keySet());
+		if(printCounts) {
+			Iterator<String> ik = words.descendingIterator();
+			while(ik.hasNext()) {
+				word = ik.next();
+				System.out.println(word + " " + wordCountMap.get(word));
+			}
 		}
 		System.out.println();
 		System.out.println("count-Words (list of words with same count) map");
@@ -72,10 +118,18 @@ public class CountTest {
 		System.out.println("length-count (length of word - count of words of that length) map");
 		System.out.println();
 		countsByLength();
+		System.out.println();
+		System.out.println("length-count (length of quote - count of quotes of that length) map");
+		System.out.println();
+		countsByBodyLength();
+		System.out.println();
+		System.out.println("binned length-count (bin (range of length of quote) - count of quotes of that length bin) map");
+		System.out.println();
+		binnedCountsByBodyLength();
 	}
 
 	public static void sortByCount() {
-		Iterator<String> ikeys = keys.iterator();
+		Iterator<String> ikeys = words.iterator();
 		String word;
 		Integer count;
 		List<String> words;
@@ -89,22 +143,22 @@ public class CountTest {
 				countWordsMap.put(count,words);
 			} else words.add(word);
 		}
-		counts = new TreeSet<Integer>(countWordsMap.keySet());
-		Iterator<Integer> icounts = counts.descendingIterator();
+		wordCounts = new TreeSet<Integer>(countWordsMap.keySet());
+		Iterator<Integer> icounts = wordCounts.descendingIterator();
 		int wsize;
 		while(icounts.hasNext()) {
 			count = icounts.next();
 			words = countWordsMap.get(count);
 			wsize =words.size();
 			System.out.println(count + " " + words.size() + " " +
-					(wsize < 12 ? 
+					(wsize < 11 ? 
 					words :
-					(words.subList(0, 9) +  "...(+ " + (wsize - 10) + " others)" ) ));
+					(words.subList(0, 11)+ (wsize > 10 ? ("...(+ " + (wsize - 10) + " others)" ) : "" ) )));
 		}
 	}
 	
 	public static void countsByLength() {
-		Iterator<String> ikeys = keys.iterator();
+		Iterator<String> ikeys = words.iterator();
 		Integer length;
 		Integer count;
 		String word;
@@ -125,8 +179,12 @@ public class CountTest {
 			count += wordCountMap.get(word); // add counts of this word to slot for its word length
 			wordLengthWordCountMap.put(length, count);
 		}
-		lengths = new TreeSet<Integer>(wordLengthWordCountMap.keySet());
-		Iterator<Integer> ilengths = lengths.iterator();
+		
+		System.out.println("sum of word counts 'sumi(wordCountMap.values())' "  + sumi(wordCountMap.values()));
+		assert(sumi(wordLengthWordCountMap.values()) == wordCount);
+
+		wordLengths = new TreeSet<Integer>(wordLengthWordCountMap.keySet());
+		Iterator<Integer> ilengths = wordLengths.iterator();
 		int wsize;
 		while(ilengths.hasNext()) {
 			length = ilengths.next();
@@ -134,14 +192,14 @@ public class CountTest {
 			words = lengthWordsMap.get(length);
 			wsize =words.size();
 			System.out.println(length + " " + count + " " +
-					(wsize < 12 ? 
+					(wsize < 11 ? 
 					words :
-					(words.subList(0, 9) +  "...(+ " + (wsize - 10) + " others)" ) ));
+					(words.subList(0, 11) + (wsize > 10 ? ("...(+ " + (wsize - 10) + " others)" ) : "" ) )));
 		}
 	}
 	
 	public static void arraysByLength() {
-		Iterator<Integer> ilengths = lengths.iterator();
+		Iterator<Integer> ilengths = wordLengths.iterator();
 		int length,count;
 		List<String> words;
 		String word;
@@ -173,5 +231,72 @@ public class CountTest {
 			}
 		}
 	}
+	
+	public static void countsByBodyLength() {
+		Short count;
+		quoteLengthQuoteCountMap.clear();
+		for(Short length : quoteLengths) {
+			count = quoteLengthQuoteCountMap.get(length);
+			count = count == null ? (short) 1 :(short)(count+1);
+			quoteLengthQuoteCountMap.put(length, count);
+		}
+		
+		System.out.println("found " + quoteLengthQuoteCountMap.size() + "  distinct quote lengths");
+		assert(sum(quoteLengthQuoteCountMap.values()) == countOfQods);
+		distinctQuoteLengths = new TreeSet<Short>(quoteLengthQuoteCountMap.keySet());
+		Iterator<Short> ilengths = distinctQuoteLengths.iterator();
+		Short length;
+		while(ilengths.hasNext()) {
+			length = ilengths.next();
+			count = quoteLengthQuoteCountMap.get(length);
+			System.out.println(length + " " + count);
+		}
+	}
+	
+	public static void binnedCountsByBodyLength() {
+		Iterator<Short> ilengths = distinctQuoteLengths.iterator();
+		Short length;
+		Short quoteCount;
+		Integer quoteCountInBin;
+		if(numberOfBins == 0) {
+			numberOfBins = (short) ( maxBodyLength/binWidth);
+		} else if(binWidth == 0) {
+			binWidth = (short) (maxBodyLength / numberOfBins);
+		}
+		int quoteTotal = 0;
+		binnedQuoteLengthQuoteCountMap.clear();
+		while(ilengths.hasNext()) {
+			length = ilengths.next();
+			quoteCount = quoteLengthQuoteCountMap.get(length);
+			quoteTotal += quoteCount;
+			boolean foundBin = false;
+			for(short i = 0; i < numberOfBins && !foundBin; i++) {
+				if(length > i * binWidth && ( length <= (i+1) * binWidth || i == numberOfBins-1)) {
+					quoteCountInBin = binnedQuoteLengthQuoteCountMap.get(i);
+					quoteCountInBin = (quoteCountInBin == null) ? quoteCount : quoteCountInBin + quoteCount;
+					binnedQuoteLengthQuoteCountMap.put(i, quoteCountInBin);
+					foundBin = true;
+				}
+			}
+			assert(foundBin);
+		}
+		System.out.println("quoteTotal " + quoteTotal);
+		int quoteCountAllBins = sumi(binnedQuoteLengthQuoteCountMap.values());
+		System.out.println("quoteCountAllBins " + quoteCountAllBins);
+	
+		System.out.println("using " + numberOfBins + " bins, found count of quote length range");
+		TreeSet<Short> bins = new TreeSet<Short>(binnedQuoteLengthQuoteCountMap.keySet());
+		Iterator<Short> ibins= bins.iterator();
+		Short bin;
+		int binMin;
+		while(ibins.hasNext()) {
+			bin = ibins.next();
+			binMin =bin* binWidth;
+			quoteCountInBin = binnedQuoteLengthQuoteCountMap.get(bin);
+			System.out.println("bin " + bin  + " (" + binMin + " - " + (binMin + binWidth) + "] "+ quoteCountInBin);
+		}
+		assert(quoteCountAllBins == countOfQods);
+	}
+	
 }
 	
