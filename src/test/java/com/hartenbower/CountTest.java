@@ -198,6 +198,17 @@ public class CountTest {
 		}
 	}
 	
+	/*
+	 * I figured there were two ways to port the quotations to GPU
+	 * first was arrays of equal-length words, arranged columnarly, and given ids that were
+	 * keys into maps of quote-index,body-index tuples.  First the words would be searched, and if the
+	 * search target were a single word, then the result would be the tuple list for that word.
+	 * If the target were a phrase, there would be a second pass through the set of tuple lists associated with the target words
+	 * that looked for same quote-index, contiguous body index matches
+	 * Pros: pretty storage efficient
+	 * Cons: initial processing of quotes
+	 *   
+	 */
 	public static void arraysByLength() {
 		Iterator<Integer> ilengths = wordLengths.iterator();
 		int length,count;
@@ -230,6 +241,25 @@ public class CountTest {
 				e.printStackTrace();
 			}
 		}
+		// finally, to be able to reconstruct quotes from hit words,
+		// change wordQuoteIndices to list of indices
+		TreeSet<String> wordSet = new TreeSet<String>(wordQuoteIndices.keySet());
+		Iterator<String> iw = wordSet.iterator();
+		List<List<Tuple2<Integer,Short>>> indicesList = new ArrayList<List<Tuple2<Integer,Short>>>(wordSet.size());
+		while(iw.hasNext()) {
+			indicesList.add(wordQuoteIndices.get(iw.next()));
+		}
+		
+		File f = new File("qodWordIndexTuples.ser");
+		ObjectOutputStream oos  = null;
+		try {
+			oos= new ObjectOutputStream(new FileOutputStream(f));
+			oos.writeObject(indicesList);
+			oos.close();
+		}catch(Exception e) {
+			e.printStackTrace();
+		}
+
 	}
 	
 	public static void countsByBodyLength() {
@@ -253,6 +283,15 @@ public class CountTest {
 		}
 	}
 	
+	/*
+	 * the second approach was to simply encode the entire quotes columnarly
+	 * which I expect to be less performant for a couple of reasons--storage inefficiency and stalling; the
+	 * method below binned quotes into a variety of bin counts, but even the most efficient
+	 * had about half the space wasted by ill-fitting quotes. The different lengths 
+	 * increase warp divergence, where threads with shorter quotes stall while waiting for threads
+	 * with longer quotes to finish
+	 * TODO verify experimentally
+	 */
 	public static void binnedCountsByBodyLength() {
 		Iterator<Short> ilengths = distinctQuoteLengths.iterator();
 		Short length;
@@ -286,12 +325,12 @@ public class CountTest {
 	
 		System.out.println("using " + numberOfBins + " bins, found count of quote length range");
 		TreeSet<Short> bins = new TreeSet<Short>(binnedQuoteLengthQuoteCountMap.keySet());
-		Iterator<Short> ibins= bins.iterator();
+		Iterator<Short> ibins = bins.iterator();
 		Short bin;
 		int binMin;
 		while(ibins.hasNext()) {
 			bin = ibins.next();
-			binMin =bin* binWidth;
+			binMin = bin * binWidth;
 			quoteCountInBin = binnedQuoteLengthQuoteCountMap.get(bin);
 			System.out.println("bin " + bin  + " (" + binMin + " - " + (binMin + binWidth) + "] "+ quoteCountInBin);
 		}
